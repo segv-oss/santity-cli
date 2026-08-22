@@ -1,6 +1,6 @@
 [package]
 name = "santity"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Native control plane, package manager, and Ratatui TUI dashboard for Santity WebAssembly runtime"
 repository = "https://github.com/segv-oss/santity-cli"
