@@ -6,9 +6,9 @@ Native control plane, package manager, binary installer, and Ratatui TUI dashboa
 
 ## 🚀 Quickstart: Get Your Bot Live in 60 Seconds
 
-### 1. Install `santity-cli`
+### 1. Install `santity`
 ```bash
-cargo install santity-cli
+cargo install santity
 ```
 
 ### 2. Boot the Runtime Daemon
@@ -41,7 +41,7 @@ santity ui
 
 ## 🏛️ Architecture
 
-`santity-cli` is the local-first operator tool and package manager for the Santity WebAssembly runtime. It communicates with `santity-core` over Unix Domain Socket IPC (`/tmp/santity.sock`).
+`santity` (packaged as `santity`, source repo `santity-cli`) is the local-first operator tool and package manager for the Santity WebAssembly runtime. It communicates with `santity-core` over Unix Domain Socket IPC (`/tmp/santity.sock`).
 
 ---
 

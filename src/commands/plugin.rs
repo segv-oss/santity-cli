@@ -19,8 +19,13 @@ fn get_plugins_dir() -> PathBuf {
 }
 
 pub async fn add(source: &str) -> Result<()> {
-    let file_name = if source.starts_with("http://") || source.starts_with("https://") {
-        source
+    let source = source.trim();
+    let is_url = source.starts_with("http://") || source.starts_with("https://");
+
+    let clean_url = source.split('?').next().unwrap_or(source);
+
+    let file_name = if is_url {
+        clean_url
             .split('/')
             .last()
             .unwrap_or("plugin.component.wasm")
@@ -58,6 +63,7 @@ pub async fn add(source: &str) -> Result<()> {
 }
 
 pub async fn add_with_capabilities(source: &str, allowed_domains: Vec<String>) -> Result<()> {
+    let source = source.trim();
     let plugins_dir = get_plugins_dir();
     let staging_dir = plugins_dir.join(".staging");
     
@@ -65,9 +71,10 @@ pub async fn add_with_capabilities(source: &str, allowed_domains: Vec<String>) -
     fs::create_dir_all(&staging_dir)?;
 
     let is_url = source.starts_with("http://") || source.starts_with("https://");
+    let clean_url = source.split('?').next().unwrap_or(source);
 
     let file_name = if is_url {
-        source
+        clean_url
             .split('/')
             .last()
             .unwrap_or("plugin.component.wasm")
@@ -88,8 +95,14 @@ pub async fn add_with_capabilities(source: &str, allowed_domains: Vec<String>) -
     let staged_path = staging_dir.join(&file_name);
 
     if is_url {
-        println!("🌐 Downloading Wasm component from {}...", source);
-        let bytes = reqwest::get(source).await?.bytes().await?;
+        println!("🌐 Downloading WebAssembly component from {}...", source);
+        let resp = reqwest::get(source)
+            .await
+            .with_context(|| format!("Failed to initiate request to URL: {}", source))?
+            .error_for_status()
+            .with_context(|| format!("HTTP request failed for URL: {}", source))?;
+
+        let bytes = resp.bytes().await?;
         fs::write(&staged_path, bytes)?;
         println!("  • Download complete: {:?}", staged_path);
     } else {
@@ -154,10 +167,11 @@ pub async fn add_with_capabilities(source: &str, allowed_domains: Vec<String>) -
         .with_context(|| format!("Failed to perform atomic swap from {:?} to {:?}", staged_path, target_path))?;
 
     println!("⚡ True atomic POSIX rename complete! Plugin live at {:?}", target_path);
-    println!("   Santity Core file-watcher has hot-loaded plugin '{}' with zero downtime!\n", plugin_name);
+    println!("Santity Core file-watcher has hot-loaded plugin '{}' with zero downtime!", plugin_name);
 
     Ok(())
 }
+
 
 pub async fn list() -> Result<()> {
     let config_path = get_config_path();

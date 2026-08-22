@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use inquire::{Password, Text};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn get_config_dir() -> PathBuf {
@@ -16,6 +16,10 @@ fn get_config_path() -> PathBuf {
 
 fn get_systemd_service_path() -> Option<PathBuf> {
     dirs::config_dir().map(|dir| dir.join("systemd").join("user").join("santity.service"))
+}
+
+fn get_launchd_plist_path() -> Option<PathBuf> {
+    dirs::home_dir().map(|home| home.join("Library/LaunchAgents/com.santity.core.plist"))
 }
 
 pub async fn execute(force_configure: bool) -> Result<()> {
@@ -75,59 +79,22 @@ pub async fn execute(force_configure: bool) -> Result<()> {
     // Ensure santity-core engine binary is installed and located
     let core_bin = crate::commands::core::ensure_core_installed().await?;
 
-    // Step 2: Systemd User Service Generation & Activation
-    if let Some(service_path) = get_systemd_service_path() {
-        if let Some(parent) = service_path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
+    // Step 2: Native daemon supervision (launchd on macOS, systemd user service on Linux)
+    let supervised = if cfg!(target_os = "macos") {
+        start_launchd_agent(&core_bin, &config_path, &plugins_dir)?
+    } else {
+        start_systemd_service(&core_bin, &config_path, &plugins_dir)?
+    };
 
-        let service_content = format!(
-            r#"[Unit]
-Description=Santity Discord Wasm Host Engine Daemon
-After=network.target
-
-[Service]
-Type=simple
-ExecStart={}
-Environment=SANTITY_CONFIG={}
-Environment=SANTITY_PLUGINS_DIR={}
-Restart=on-failure
-RestartSec=3s
-
-[Install]
-WantedBy=default.target
-"#,
-            core_bin.display(),
-            config_path.display(),
-            plugins_dir.display()
-        );
-
-        fs::write(&service_path, service_content)?;
-        println!("⚙️  Generated systemd user service at {:?}", service_path);
-
-        // Try activating via systemctl
-        let reload_res = Command::new("systemctl")
-            .args(["--user", "daemon-reload"])
-            .status();
-
-        if reload_res.map(|s| s.success()).unwrap_or(false) {
-            let start_res = Command::new("systemctl")
-                .args(["--user", "enable", "--now", "santity.service"])
-                .status();
-
-            if start_res.map(|s| s.success()).unwrap_or(false) {
-                println!("🎉 Santity Core daemon activated natively via systemd user service!");
-                println!("  • Service: santity.service");
-                println!("  • Config:  {:?}", config_path);
-                println!("  • Plugins: {:?}", plugins_dir);
-                println!("  • Socket:  /tmp/santity.sock\n");
-                println!("Run `santity ui` to open the real-time Ratatui dashboard!");
-                return Ok(());
-            }
-        }
+    if supervised {
+        println!("  • Config:  {:?}", config_path);
+        println!("  • Plugins: {:?}", plugins_dir);
+        println!("  • Socket:  /tmp/santity.sock\n");
+        println!("Run `santity ui` to open the real-time Ratatui dashboard!");
+        return Ok(());
     }
 
-    // Fallback: spawn detached background process if systemd systemctl fails
+    // Fallback: spawn detached background process if no native supervisor is available
     println!("⚡ Spawning Santity Core daemon as a background process...");
     let child = Command::new(&core_bin)
         .env("SANTITY_CONFIG", &config_path)
@@ -142,5 +109,155 @@ WantedBy=default.target
     println!("Run `santity ui` to open the real-time Ratatui dashboard!");
 
     Ok(())
+}
+
+/// Install and bootstrap a macOS launchd agent (KeepAlive + RunAtLoad) supervising santity-core.
+fn start_launchd_agent(core_bin: &Path, config_path: &Path, plugins_dir: &Path) -> Result<bool> {
+    let Some(plist_path) = get_launchd_plist_path() else {
+        return Ok(false);
+    };
+
+    if let Some(parent) = plist_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
+    let uid = unsafe { libc::getuid() };
+    let stdout_log = dirs::home_dir()
+        .map(|h| h.join("Library/Logs/santity-core.out.log"))
+        .unwrap_or_else(|| PathBuf::from("/tmp/santity-core.out.log"));
+    let stderr_log = dirs::home_dir()
+        .map(|h| h.join("Library/Logs/santity-core.err.log"))
+        .unwrap_or_else(|| PathBuf::from("/tmp/santity-core.err.log"));
+
+    let plist_content = format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.santity.core</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>{}</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>SANTITY_CONFIG</key>
+        <string>{}</string>
+        <key>SANTITY_PLUGINS_DIR</key>
+        <string>{}</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>{}</string>
+
+    <key>StandardErrorPath</key>
+    <string>{}</string>
+</dict>
+</plist>
+"#,
+        core_bin.display(),
+        config_path.display(),
+        plugins_dir.display(),
+        stdout_log.display(),
+        stderr_log.display()
+    );
+
+    fs::write(&plist_path, plist_content)?;
+    println!("⚙️  Generated launchd agent at {:?}", plist_path);
+
+    // Replace any previously-loaded instance of the agent (ignore failures: not loaded yet)
+    let _ = Command::new("launchctl")
+        .args(["bootout", &format!("gui/{uid}/com.santity.core")])
+        .status();
+
+    let bootstrapped = Command::new("launchctl")
+        .args([
+            "bootstrap",
+            &format!("gui/{uid}"),
+            &plist_path.to_string_lossy(),
+        ])
+        .status();
+
+    if bootstrapped.map(|s| s.success()).unwrap_or(false) {
+        println!("🎉 Santity Core daemon activated via launchd agent (auto-restart + login persistence)!");
+        println!("  • Agent: com.santity.core");
+        return Ok(true);
+    }
+
+    // Older macOS fallback: legacy load subcommand
+    let loaded = Command::new("launchctl").arg("load").arg(&plist_path).status();
+    if loaded.map(|s| s.success()).unwrap_or(false) {
+        println!("🎉 Santity Core daemon activated via launchd (legacy load)!");
+        return Ok(true);
+    }
+
+    warn_launchd_failure();
+    Ok(false)
+}
+
+fn warn_launchd_failure() {
+    println!("⚠️  Could not register launchd agent; falling back to background process.");
+}
+
+/// Generate and activate a systemd user service supervising santity-core (Linux).
+fn start_systemd_service(core_bin: &Path, config_path: &Path, plugins_dir: &Path) -> Result<bool> {
+    let Some(service_path) = get_systemd_service_path() else {
+        return Ok(false);
+    };
+
+    if let Some(parent) = service_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
+    let service_content = format!(
+        r#"[Unit]
+Description=Santity Discord Wasm Host Engine Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={}
+Environment=SANTITY_CONFIG={}
+Environment=SANTITY_PLUGINS_DIR={}
+Restart=on-failure
+RestartSec=3s
+
+[Install]
+WantedBy=default.target
+"#,
+        core_bin.display(),
+        config_path.display(),
+        plugins_dir.display()
+    );
+
+    fs::write(&service_path, service_content)?;
+    println!("⚙️  Generated systemd user service at {:?}", service_path);
+
+    let reload_res = Command::new("systemctl")
+        .args(["--user", "daemon-reload"])
+        .status();
+
+    if reload_res.map(|s| s.success()).unwrap_or(false) {
+        let start_res = Command::new("systemctl")
+            .args(["--user", "enable", "--now", "santity.service"])
+            .status();
+
+        if start_res.map(|s| s.success()).unwrap_or(false) {
+            println!("🎉 Santity Core daemon activated natively via systemd user service!");
+            println!("  • Service: santity.service");
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 

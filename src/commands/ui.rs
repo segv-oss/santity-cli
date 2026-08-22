@@ -180,8 +180,8 @@ async fn run_loop(
                             app.mode = AppMode::Normal;
                         }
                         KeyCode::Enter => {
-                            let source = app.input.value().to_string();
-                            if !source.trim().is_empty() {
+                            let source = app.input.value().trim().to_string();
+                            if !source.is_empty() {
                                 app.pending_source = Some(source);
                                 app.mode = AppMode::CapabilityInputModal;
                                 app.input.reset();
@@ -189,6 +189,7 @@ async fn run_loop(
                                 app.mode = AppMode::Normal;
                             }
                         }
+
                         _ => {
                             app.input.handle_event(&Event::Key(key));
                         }

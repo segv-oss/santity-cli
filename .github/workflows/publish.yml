@@ -8,14 +8,14 @@ on:
 
 jobs:
   publish:
-    name: Publish santity-cli to crates.io
+    name: Publish santity to crates.io
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Publish santity-cli
+      - name: Publish santity
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish

@@ -13,7 +13,19 @@ fn get_pid_path() -> PathBuf {
 pub async fn execute() -> Result<()> {
     println!("🛑 Stopping Santity Core daemon...");
 
-    // Try systemd user service stop first
+    // Stop launchd agent first (macOS)
+    if cfg!(target_os = "macos") {
+        let uid = unsafe { libc::getuid() };
+        let bootout_res = Command::new("launchctl")
+            .args(["bootout", &format!("gui/{uid}/com.santity.core")])
+            .status();
+
+        if bootout_res.map(|s| s.success()).unwrap_or(false) {
+            println!("✅ Stopped launchd agent com.santity.core");
+        }
+    }
+
+    // Try systemd user service stop (Linux)
     let systemctl_res = Command::new("systemctl")
         .args(["--user", "stop", "santity.service"])
         .status();
