@@ -1,34 +1,78 @@
 # santity-cli
 
-Native control plane, package manager, and Ratatui TUI dashboard for Santity.
+Native control plane, package manager, binary installer, and Ratatui TUI dashboard for Santity.
 
-## Architecture
+---
+
+## 🚀 Quickstart: Get Your Bot Live in 60 Seconds
+
+### 1. Install `santity-cli`
+```bash
+cargo install santity-cli
+```
+
+### 2. Boot the Runtime Daemon
+Run `santity up` to trigger the interactive setup wizard. It will prompt for your Discord Bot Token and automatically install `santity-core` if it's missing:
+```bash
+santity up
+```
+
+### 3. Install an Official Pre-Compiled WASM Plugin (or Scaffold Your Own)
+You can install official compiled plugins directly from GitHub Releases:
+```bash
+santity plugin add https://github.com/segv-oss/santity-plugins/releases/latest/download/ping_pong.component.wasm
+```
+
+Or scaffold a custom plugin:
+```bash
+santity new my_bot_plugin
+cd my_bot_plugin
+santity build --release
+santity plugin add target/wasm32-unknown-unknown/release/my_bot_plugin.component.wasm
+```
+
+### 4. Launch Live Ratatui TUI Dashboard
+Stream real-time IPC logs, active WASM actors, slash command routers, memory stats, and permit pool gauges:
+```bash
+santity ui
+```
+
+---
+
+## 🏛️ Architecture
 
 `santity-cli` is the local-first operator tool and package manager for the Santity WebAssembly runtime. It communicates with `santity-core` over Unix Domain Socket IPC (`/tmp/santity.sock`).
 
-## Commands
+---
 
-### 1. `santity up [--configure]`
-Runs the interactive setup wizard (if `~/.config/santity/config.toml` is unconfigured) and boots `santity-core` as a detached background process with PID tracking.
+## 📋 Command Reference
 
-### 2. `santity down`
+### `santity up [--configure]`
+Runs the interactive setup wizard (if `~/.config/santity/config.toml` is unconfigured), auto-installs `santity-core` if missing, and boots `santity-core` via systemd user service or background daemon.
+
+### `santity core <install|status>`
+Manages the `santity-core` runtime engine binary (auto-installing via `cargo install santity-core` or displaying status/location).
+
+### `santity down`
 Cleanly terminates the running `santity-core` daemon process.
 
-### 3. `santity plugin add <url|file>`
-Downloads a `.component.wasm` plugin binary, prompts for capability domain whitelisting (`allowed_domains`), updates `config.toml`, and performs a POSIX atomic move into `~/.config/santity/plugins/` to trigger zero-downtime hot-reloading.
+### `santity plugin add <url|file>`
+Downloads a `.component.wasm` plugin binary (from a local file path or GitHub Release URL), prompts for capability domain whitelisting (`allowed_domains`), updates `config.toml`, and performs a POSIX atomic move into `~/.config/santity/plugins/` to trigger zero-downtime hot-reloading.
 
-### 4. `santity plugin list`
+### `santity plugin list`
 Lists all installed plugins and their granted capability domains.
 
-### 5. `santity ui [--socket <path>]`
+### `santity ui [--socket <path>]`
 Launches an interactive, split-pane **Ratatui TUI dashboard** streaming real-time IPC logs, active WASM plugin actors, memory stats, and permit pool gauges.
 
-### 6. `santity new <name>`
+### `santity new <name>`
 Scaffolds a new PDK guest WebAssembly plugin project from template.
 
-### 7. `santity build [--release]`
+### `santity build [--release]`
 Compiles guest Rust code to WASM (`wasm32-unknown-unknown`) and automatically translates it into a Component Model binary using `wasm-tools`.
 
-## License
+---
+
+## 📜 License
 
 Dual-licensed under [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE).
