@@ -18,7 +18,7 @@ pub async fn execute(name: &str, local_pdk: Option<&str>) -> Result<()> {
     let pdk_dependency = if let Some(pdk_path) = pdk_override {
         format!("santity-pdk = {{ path = \"{}\" }}", pdk_path)
     } else {
-        "santity-pdk = \"0.1.0\"".to_string()
+        "santity-pdk = \"0.2.0\"".to_string()
     };
 
     let cargo_toml = format!(
