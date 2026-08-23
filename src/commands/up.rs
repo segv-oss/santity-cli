@@ -1,8 +1,29 @@
 use anyhow::{Context, Result};
-use inquire::{Password, Text};
+use inquire::{MultiSelect, Password, Text};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+/// Baseline unprivileged intents: GUILDS | GUILD_MESSAGES
+const BASELINE_INTENTS: u64 = (1 << 0) | (1 << 9);
+
+/// Privileged gateway intents surfaced as wizard opt-ins.
+/// Each requires manual activation in the Discord Developer Portal
+/// (Bot -> Privileged Gateway Intents) or the gateway IDENTIFY will fail.
+const PRIVILEGED_INTENT_CHOICES: [(&str, u64); 3] = [
+    (
+        "Server Members — member join/leave/update events (moderation, welcome, role plugins)",
+        1 << 1,
+    ),
+    (
+        "Presence — user status & activity tracking (vanity role, leveling plugins)",
+        1 << 8,
+    ),
+    (
+        "Message Content — read full message text (auto-responder, anti-spam, snipe plugins)",
+        1 << 15,
+    ),
+];
 
 fn get_config_dir() -> PathBuf {
     dirs::config_dir()
@@ -47,9 +68,27 @@ pub async fn execute(force_configure: bool) -> Result<()> {
 
         let db_path = config_dir.join("santity.db").to_string_lossy().to_string();
 
+        // Gateway intent selection: baseline always on; privileged intents are
+        // explicit opt-ins because they must also be enabled in the Discord
+        // Developer Portal and are gated by Discord verification requirements.
+        println!("ℹ️  Privileged intents you enable here must ALSO be toggled in the");
+        println!("     Discord Developer Portal -> your app -> Bot -> Privileged Gateway Intents.\n");
+        let intent_labels: Vec<&str> = PRIVILEGED_INTENT_CHOICES.iter().map(|(l, _)| *l).collect();
+        let selected = MultiSelect::new("Enable privileged gateway intents?", intent_labels)
+            .with_help_message("Plugins declare required events themselves; core aggregates them automatically. Only enable what your plugins need.")
+            .with_default(&[2])
+            .prompt()?;
+        let mut intents = BASELINE_INTENTS;
+        for label in selected {
+            if let Some((_, mask)) = PRIVILEGED_INTENT_CHOICES.iter().find(|(l, _)| *l == label) {
+                intents |= mask;
+            }
+        }
+
         let mut toml_content = format!(
-            "[bot]\ntoken = \"{}\"\nintents = 33281\n",
-            token.trim()
+            "[bot]\ntoken = \"{}\"\nintents = {}\n",
+            token.trim(),
+            intents
         );
 
         if let Some(id) = app_id {
