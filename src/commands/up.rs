@@ -51,7 +51,7 @@ pub async fn execute(force_configure: bool) -> Result<()> {
 
     // Step 1: Interactive Wizard if config is missing or force_configure requested
     if force_configure || !config_path.exists() {
-        println!("🚀 Welcome to Santity Core Interactive Setup Wizard!");
+        println!("// Welcome to Santity Core Interactive Setup Wizard");
         println!("Configuring runtime environment at {:?}\n", config_path);
 
         let token = Password::new("Enter your Discord Bot Token:")
@@ -71,8 +71,8 @@ pub async fn execute(force_configure: bool) -> Result<()> {
         // Gateway intent selection: baseline always on; privileged intents are
         // explicit opt-ins because they must also be enabled in the Discord
         // Developer Portal and are gated by Discord verification requirements.
-        println!("ℹ️  Privileged intents you enable here must ALSO be toggled in the");
-        println!("     Discord Developer Portal -> your app -> Bot -> Privileged Gateway Intents.\n");
+        println!("[INFO] Privileged intents you enable here must ALSO be toggled in the");
+        println!("       Discord Developer Portal -> your app -> Bot -> Privileged Gateway Intents.\n");
         let intent_labels: Vec<&str> = PRIVILEGED_INTENT_CHOICES.iter().map(|(l, _)| *l).collect();
         let selected = MultiSelect::new("Enable privileged gateway intents?", intent_labels)
             .with_help_message("Plugins declare required events themselves; core aggregates them automatically. Only enable what your plugins need.")
@@ -109,7 +109,7 @@ pub async fn execute(force_configure: bool) -> Result<()> {
         ));
 
         fs::write(&config_path, toml_content)?;
-        println!("✅ Configuration file saved at {:?}\n", config_path);
+        println!("[OK] Configuration file saved at {:?}\n", config_path);
     }
 
     let plugins_dir = config_dir.join("plugins");
@@ -128,13 +128,13 @@ pub async fn execute(force_configure: bool) -> Result<()> {
     if supervised {
         println!("  • Config:  {:?}", config_path);
         println!("  • Plugins: {:?}", plugins_dir);
-        println!("  • Socket:  /tmp/santity.sock\n");
-        println!("Run `santity ui` to open the real-time Ratatui dashboard!");
+        println!("  • Socket:  {:?}\n", crate::commands::default_socket_path());
+        println!("Run `santity ui` to open the real-time Ratatui dashboard.");
         return Ok(());
     }
 
     // Fallback: spawn detached background process if no native supervisor is available
-    println!("⚡ Spawning Santity Core daemon as a background process...");
+    println!("› Spawning Santity Core daemon as a background process...");
     let child = Command::new(&core_bin)
         .env("SANTITY_CONFIG", &config_path)
         .env("SANTITY_PLUGINS_DIR", &plugins_dir)
@@ -144,8 +144,8 @@ pub async fn execute(force_configure: bool) -> Result<()> {
     let pid_path = config_dir.join("santity.pid");
     fs::write(&pid_path, child.id().to_string())?;
 
-    println!("🎉 Santity Core engine running in background (PID {})", child.id());
-    println!("Run `santity ui` to open the real-time Ratatui dashboard!");
+    println!("[OK] Santity Core engine running in background (PID {})", child.id());
+    println!("Run `santity ui` to open the real-time Ratatui dashboard.");
 
     Ok(())
 }
@@ -211,7 +211,7 @@ fn start_launchd_agent(core_bin: &Path, config_path: &Path, plugins_dir: &Path) 
     );
 
     fs::write(&plist_path, plist_content)?;
-    println!("⚙️  Generated launchd agent at {:?}", plist_path);
+    println!("› Generated launchd agent at {:?}", plist_path);
 
     // Replace any previously-loaded instance of the agent (ignore failures: not loaded yet)
     let _ = Command::new("launchctl")
@@ -227,7 +227,7 @@ fn start_launchd_agent(core_bin: &Path, config_path: &Path, plugins_dir: &Path) 
         .status();
 
     if bootstrapped.map(|s| s.success()).unwrap_or(false) {
-        println!("🎉 Santity Core daemon activated via launchd agent (auto-restart + login persistence)!");
+        println!("[OK] Santity Core daemon activated via launchd agent (auto-restart + login persistence).");
         println!("  • Agent: com.santity.core");
         return Ok(true);
     }
@@ -235,7 +235,7 @@ fn start_launchd_agent(core_bin: &Path, config_path: &Path, plugins_dir: &Path) 
     // Older macOS fallback: legacy load subcommand
     let loaded = Command::new("launchctl").arg("load").arg(&plist_path).status();
     if loaded.map(|s| s.success()).unwrap_or(false) {
-        println!("🎉 Santity Core daemon activated via launchd (legacy load)!");
+        println!("[OK] Santity Core daemon activated via launchd (legacy load).");
         return Ok(true);
     }
 
@@ -244,7 +244,7 @@ fn start_launchd_agent(core_bin: &Path, config_path: &Path, plugins_dir: &Path) 
 }
 
 fn warn_launchd_failure() {
-    println!("⚠️  Could not register launchd agent; falling back to background process.");
+    println!("[WARN] Could not register launchd agent; falling back to background process.");
 }
 
 /// Generate and activate a systemd user service supervising santity-core (Linux).
@@ -279,7 +279,7 @@ WantedBy=default.target
     );
 
     fs::write(&service_path, service_content)?;
-    println!("⚙️  Generated systemd user service at {:?}", service_path);
+    println!("› Generated systemd user service at {:?}", service_path);
 
     let reload_res = Command::new("systemctl")
         .args(["--user", "daemon-reload"])
@@ -291,7 +291,7 @@ WantedBy=default.target
             .status();
 
         if start_res.map(|s| s.success()).unwrap_or(false) {
-            println!("🎉 Santity Core daemon activated natively via systemd user service!");
+            println!("[OK] Santity Core daemon activated natively via systemd user service.");
             println!("  • Service: santity.service");
             return Ok(true);
         }

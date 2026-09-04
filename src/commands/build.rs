@@ -15,7 +15,7 @@ pub async fn execute(release: bool) -> Result<()> {
         cargo_cmd.arg("--release");
     }
 
-    println!("⚙️  Compiling guest WASM binary with cargo...");
+    println!("› Compiling guest WASM binary with cargo...");
     let status = cargo_cmd.status().context("Failed to run cargo build")?;
     if !status.success() {
         anyhow::bail!("Cargo build failed!");
@@ -46,7 +46,7 @@ pub async fn execute(release: bool) -> Result<()> {
         anyhow::bail!("Compiled WASM binary not found at {:?}", wasm_file);
     }
 
-    println!("🧩 Converting WASM module to Component Model binary using wasm-tools...");
+    println!("› Converting WASM module to Component Model binary using wasm-tools...");
     let wt_status = Command::new("wasm-tools")
         .args([
             "component",
@@ -62,7 +62,7 @@ pub async fn execute(release: bool) -> Result<()> {
         anyhow::bail!("wasm-tools component creation failed!");
     }
 
-    println!("✅ Successfully created WASM Component Model binary at:");
+    println!("[OK] Successfully created WASM Component Model binary at:");
     println!("   {:?}\n", component_wasm_file);
     println!("Run `santity plugin add {:?}` to deploy it live to Santity Core!", component_wasm_file);
 

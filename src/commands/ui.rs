@@ -116,12 +116,13 @@ async fn run_loop(
             match msg {
                 IpcMessage::Log {
                     level,
-                    target: _,
+                    target,
                     message,
                     timestamp,
                 } => {
                     app.logs.push(LogItem {
                         level,
+                        target,
                         message,
                         timestamp,
                     });
@@ -143,6 +144,7 @@ async fn run_loop(
             app.notification_msg = Some(note.clone());
             app.logs.push(LogItem {
                 level: "INFO".to_string(),
+                target: "worker".to_string(),
                 message: note,
                 timestamp: "NOW".to_string(),
             });

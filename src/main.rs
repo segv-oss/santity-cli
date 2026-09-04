@@ -34,8 +34,8 @@ enum Commands {
     /// Launch interactive split-pane Ratatui TUI dashboard
     Ui {
         /// Path to Unix Domain Socket
-        #[arg(short, long, default_value = "/tmp/santity.sock")]
-        socket: String,
+        #[arg(short, long)]
+        socket: Option<String>,
     },
     /// Scaffold a new Santity WASM plugin project from template
     New {
@@ -88,7 +88,14 @@ async fn main() -> Result<()> {
             PluginCommands::Add { source } => commands::plugin::add(&source).await?,
             PluginCommands::List => commands::plugin::list().await?,
         },
-        Commands::Ui { socket } => commands::ui::execute(&socket).await?,
+        Commands::Ui { socket } => {
+            let socket_path = socket.unwrap_or_else(|| {
+                commands::default_socket_path()
+                    .to_string_lossy()
+                    .to_string()
+            });
+            commands::ui::execute(&socket_path).await?
+        }
         Commands::New { name, local_pdk } => commands::new::execute(&name, local_pdk.as_deref()).await?,
         Commands::Build { release } => commands::build::execute(release).await?,
     }

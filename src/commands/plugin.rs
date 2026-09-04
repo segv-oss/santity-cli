@@ -27,7 +27,7 @@ pub async fn add(source: &str) -> Result<()> {
     let file_name = if is_url {
         clean_url
             .split('/')
-            .last()
+            .next_back()
             .unwrap_or("plugin.component.wasm")
             .to_string()
     } else {
@@ -44,7 +44,7 @@ pub async fn add(source: &str) -> Result<()> {
         .to_string();
 
     // Interactive Capability Prompt
-    println!("\n🛡️  Capability-Gated Boundary Prompt:");
+    println!("\n// Capability-Gated Boundary Prompt:");
     let domains_input = Text::new(&format!(
         "Enter allowed outbound network domains for plugin '{}' (comma-separated, leave blank for none):",
         plugin_name
@@ -76,7 +76,7 @@ pub async fn add_with_capabilities(source: &str, allowed_domains: Vec<String>) -
     let file_name = if is_url {
         clean_url
             .split('/')
-            .last()
+            .next_back()
             .unwrap_or("plugin.component.wasm")
             .to_string()
     } else {
@@ -95,7 +95,7 @@ pub async fn add_with_capabilities(source: &str, allowed_domains: Vec<String>) -
     let staged_path = staging_dir.join(&file_name);
 
     if is_url {
-        println!("🌐 Downloading WebAssembly component from {}...", source);
+        println!("› Downloading WebAssembly component from {}...", source);
         let resp = reqwest::get(source)
             .await
             .with_context(|| format!("Failed to initiate request to URL: {}", source))?
@@ -159,15 +159,15 @@ pub async fn add_with_capabilities(source: &str, allowed_domains: Vec<String>) -
         }
 
         fs::write(&config_path, doc.to_string())?;
-        println!("✅ Updated {:?} with capability whitelists.", config_path);
+        println!("[OK] Updated {:?} with capability whitelists.", config_path);
     }
 
     // TRUE ATOMIC POSIX RENAME (Guaranteed same filesystem)
     fs::rename(&staged_path, &target_path)
         .with_context(|| format!("Failed to perform atomic swap from {:?} to {:?}", staged_path, target_path))?;
 
-    println!("⚡ True atomic POSIX rename complete! Plugin live at {:?}", target_path);
-    println!("Santity Core file-watcher has hot-loaded plugin '{}' with zero downtime!", plugin_name);
+    println!("[OK] True atomic POSIX rename complete. Plugin live at {:?}", target_path);
+    println!("Santity Core file-watcher has hot-loaded plugin '{}' with zero downtime.", plugin_name);
 
     Ok(())
 }
@@ -176,14 +176,14 @@ pub async fn add_with_capabilities(source: &str, allowed_domains: Vec<String>) -
 pub async fn list() -> Result<()> {
     let config_path = get_config_path();
     if !config_path.exists() {
-        println!("ℹ️  No config.toml file found at {:?}", config_path);
+        println!("[INFO] No config.toml file found at {:?}", config_path);
         return Ok(());
     }
 
     let config_str = fs::read_to_string(&config_path)?;
     let doc: DocumentMut = config_str.parse()?;
 
-    println!("📦 Installed WASM Plugins:");
+    println!("// Installed WASM Plugins:");
     if let Some(plugins) = doc.get("plugins").and_then(|p| p.as_array_of_tables()) {
         for (idx, plugin) in plugins.iter().enumerate() {
             let name = plugin.get("name").and_then(|v| v.as_str()).unwrap_or("unknown");

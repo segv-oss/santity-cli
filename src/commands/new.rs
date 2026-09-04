@@ -48,7 +48,7 @@ impl MyPlugin {{
     #[command(name = "hello", description = "Sample command created with santity-cli")]
     fn hello(_event: InteractionEvent) -> ResponseAction {{
         info!("Executing hello command in {name} plugin!");
-        ResponseAction::reply("Hello from your sandboxed WASM plugin! 🚀".to_string())
+        ResponseAction::reply("Hello from your sandboxed WASM plugin!".to_string())
     }}
 }}
 "#
@@ -57,7 +57,7 @@ impl MyPlugin {{
     fs::write(target_dir.join("Cargo.toml"), cargo_toml)?;
     fs::write(target_dir.join("src").join("lib.rs"), lib_rs)?;
 
-    println!("✨ Created new Santity WASM plugin project at ./{}/", name);
+    println!("// Created new Santity WASM plugin project at ./{}/", name);
     println!("  • Cargo.toml created with {}", pdk_dependency);
     println!("  • src/lib.rs generated with sample #[command]");
     println!("\nNext steps:");

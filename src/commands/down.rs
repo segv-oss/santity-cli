@@ -10,8 +10,36 @@ fn get_pid_path() -> PathBuf {
         .join("santity.pid")
 }
 
+fn is_santity_process(pid: i32) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(cmdline) = fs::read_to_string(format!("/proc/{}/cmdline", pid)) {
+            if cmdline.contains("santity-core") || cmdline.contains("santity") {
+                return true;
+            }
+        }
+        if let Ok(comm) = fs::read_to_string(format!("/proc/{}/comm", pid)) {
+            if comm.contains("santity-core") || comm.contains("santity") {
+                return true;
+            }
+        }
+    }
+
+    if let Ok(out) = Command::new("ps")
+        .args(["-p", &pid.to_string(), "-o", "command="])
+        .output()
+    {
+        if out.status.success() {
+            let cmd = String::from_utf8_lossy(&out.stdout);
+            return cmd.contains("santity-core") || cmd.contains("santity");
+        }
+    }
+
+    false
+}
+
 pub async fn execute() -> Result<()> {
-    println!("🛑 Stopping Santity Core daemon...");
+    println!("› Stopping Santity Core daemon...");
 
     // Stop launchd agent first (macOS)
     if cfg!(target_os = "macos") {
@@ -21,7 +49,7 @@ pub async fn execute() -> Result<()> {
             .status();
 
         if bootout_res.map(|s| s.success()).unwrap_or(false) {
-            println!("✅ Stopped launchd agent com.santity.core");
+            println!("[OK] Stopped launchd agent com.santity.core");
         }
     }
 
@@ -31,24 +59,33 @@ pub async fn execute() -> Result<()> {
         .status();
 
     if systemctl_res.map(|s| s.success()).unwrap_or(false) {
-        println!("✅ Stopped systemd user service santity.service");
+        println!("[OK] Stopped systemd user service santity.service");
     }
 
-    // Fallback PID file check
+    // Fallback PID file check with process identity verification
     let pid_path = get_pid_path();
     if pid_path.exists() {
         if let Ok(pid_str) = fs::read_to_string(&pid_path) {
             if let Ok(pid) = pid_str.trim().parse::<i32>() {
-                #[cfg(unix)]
-                unsafe {
-                    libc::kill(pid, libc::SIGTERM);
+                if is_santity_process(pid) {
+                    #[cfg(unix)]
+                    unsafe {
+                        libc::kill(pid, libc::SIGTERM);
+                    }
+                    println!("[OK] Sent SIGTERM to santity-core process (PID: {})", pid);
+                } else {
+                    println!(
+                        "[WARN] Process {} is not santity-core (PID was likely recycled). Skipping SIGTERM.",
+                        pid
+                    );
                 }
             }
         }
         let _ = fs::remove_file(&pid_path);
     }
 
-    let _ = fs::remove_file("/tmp/santity.sock");
-    println!("✅ Santity Core daemon stopped successfully.");
+    let socket_path = crate::commands::default_socket_path();
+    let _ = fs::remove_file(&socket_path);
+    println!("[OK] Santity Core daemon stopped successfully.");
     Ok(())
 }

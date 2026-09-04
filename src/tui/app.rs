@@ -3,7 +3,6 @@ use tui_input::Input;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "kind", content = "payload")]
-#[allow(dead_code)]
 pub enum IpcMessage {
     Log {
         level: String,
@@ -37,9 +36,9 @@ pub enum AppMode {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct LogItem {
     pub level: String,
+    pub target: String,
     pub message: String,
     pub timestamp: String,
 }
@@ -71,6 +70,7 @@ impl App {
             logs: vec![
                 LogItem {
                     level: "INFO".to_string(),
+                    target: "santity".to_string(),
                     message: "Santity Core Control Deck initialized.".to_string(),
                     timestamp: "NOW".to_string(),
                 },

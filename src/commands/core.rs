@@ -31,7 +31,7 @@ pub async fn ensure_core_installed() -> Result<PathBuf> {
         return Ok(path);
     }
 
-    println!("⚠️  Santity Core runtime engine (`santity-core`) was not found in PATH or ~/.santity/bin/");
+    println!("[WARN] Santity Core runtime engine (`santity-core`) was not found in PATH or ~/.santity/bin/");
     let prompt_msg = "Would you like santity-cli to install `santity-core` via `cargo install santity-core` now?";
     let should_install = Confirm::new(prompt_msg)
         .with_default(true)
@@ -49,7 +49,7 @@ pub async fn ensure_core_installed() -> Result<PathBuf> {
 }
 
 pub async fn install_core() -> Result<()> {
-    println!("📦 Installing `santity-core` via cargo...");
+    println!("› Installing `santity-core` via cargo...");
 
     let santity_home = dirs::home_dir()
         .context("Could not determine home directory")?
@@ -61,7 +61,7 @@ pub async fn install_core() -> Result<()> {
         .context("Failed to execute `cargo install santity-core`")?;
 
     if status.success() {
-        println!("✅ Successfully installed `santity-core` to {:?}", santity_home.join("bin"));
+        println!("[OK] Successfully installed `santity-core` to {:?}", santity_home.join("bin"));
         Ok(())
     } else {
         anyhow::bail!("`cargo install santity-core` exited with non-zero status.");
@@ -69,7 +69,7 @@ pub async fn install_core() -> Result<()> {
 }
 
 pub async fn status() -> Result<()> {
-    println!("🔍 Checking Santity Core Installation Status...");
+    println!("// Checking Santity Core Installation Status...");
 
     if let Some(path) = find_core_binary() {
         println!("  • Binary Location: {:?}", path);
@@ -89,11 +89,11 @@ pub async fn status() -> Result<()> {
         println!("  • Run `santity core install` or `cargo install santity-core` to install it.");
     }
 
-    let socket_path = std::path::Path::new("/tmp/santity.sock");
+    let socket_path = crate::commands::default_socket_path();
     if socket_path.exists() {
-        println!("  • IPC Socket:     Active at /tmp/santity.sock 🟢");
+        println!("  • IPC Socket:     [ACTIVE] {:?}", socket_path);
     } else {
-        println!("  • IPC Socket:     Inactive (/tmp/santity.sock not found) 🔴");
+        println!("  • IPC Socket:     [INACTIVE] ({:?} not found)", socket_path);
     }
 
     Ok(())

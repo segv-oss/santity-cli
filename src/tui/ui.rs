@@ -27,7 +27,7 @@ pub fn render(f: &mut Frame, app: &App) {
     let status_text = if app.connected { "CONNECTED (UDS)" } else { "CONNECTING..." };
 
     let mut header_spans = vec![
-        Span::styled("⚡ SANTITY CORE CONTROL DECK ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+        Span::styled("› SANTITY CORE CONTROL DECK ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
         Span::raw(" | Engine IPC: "),
         Span::styled(status_text, status_style),
         Span::raw(format!(" | Socket: {}", app.socket_path)),
@@ -129,6 +129,8 @@ pub fn render(f: &mut Frame, app: &App) {
 
             ListItem::new(Line::from(vec![
                 Span::styled(format!("[{}] ", item.level), level_style),
+                Span::styled(format!("[{}] ", item.target), Style::default().fg(Color::Cyan)),
+                Span::styled(format!("({}) ", item.timestamp), Style::default().fg(Color::DarkGray)),
                 Span::raw(&item.message),
             ]))
         })
@@ -175,7 +177,7 @@ pub fn render(f: &mut Frame, app: &App) {
             Line::from(""),
             Line::from(Span::styled(input_text, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
         ])
-        .block(Block::default().borders(Borders::ALL).title(" 📦 Add WASM Plugin Component "));
+        .block(Block::default().borders(Borders::ALL).title(" // Add WASM Plugin Component "));
 
         f.render_widget(dialog, area);
     } else if app.mode == AppMode::CapabilityInputModal {
@@ -184,7 +186,7 @@ pub fn render(f: &mut Frame, app: &App) {
 
         let input_text = app.input.value();
         let dialog = Paragraph::new(vec![
-            Line::from("🛡️ Capability Boundary Whitelist Prompt"),
+            Line::from("// Capability Boundary Whitelist Prompt"),
             Line::from("Enter allowed network domains (comma-separated, or leave blank):"),
             Line::from(""),
             Line::from(Span::styled(input_text, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
